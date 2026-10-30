@@ -3,6 +3,10 @@
 
 #include <agrum/base/core/hashTable.h>
 
+#include <utility>
+#include <vector>
+
+#include <openturns/Point.hxx>
 #include <openturns/Sample.hxx>
 #include <openturns/NormalCopula.hxx>
 
@@ -35,7 +39,13 @@ public:
                                         const OT::UnsignedInteger Z,
                                         const OT::Indices &U = OT::Indices());
 
-  enum class KModeTypes {NoCorr, Naive};
+  // NoCorr   : no penalty, the raw plug-in information is used.
+  // Naive    : constant penalty alpha, the historical CMIIC behaviour.
+  // Analytic : sample split, construction on the first half, evaluation on the
+  //            second half, and the analytic threshold mu_n + z_{1-alpha} sigma_tot
+  //            with sigma_tot^2 = sigma_n^2 + s^2 / n_eval. Here alpha is the
+  //            level of the test. Bernstein copulas only.
+  enum class KModeTypes {NoCorr, Naive, Analytic};
   enum class CModeTypes {Gaussian, Bernstein};
 
   void setKMode(CorrectedMutualInformation::KModeTypes kmode);
@@ -54,6 +64,21 @@ private:
 
 
   double computeCrossEntropy(const OT::Indices &variables, const int K);
+
+  // Analytic mode. Size used to choose K, the construction half.
+  OT::UnsignedInteger sizeForK() const;
+  // Log-density of the Bernstein copula of `variables`, built on the
+  // construction half, at the evaluation points. Cached by (variables, K).
+  // A block of dimension <= 1 gives the null vector.
+  OT::Point computeLogPDFOnEval(const OT::Indices &variables, const int K);
+  // a = K sum_r (int_0^1 P(Bin(K-1,u)=r)^2 du) and
+  // S = sum_{r,s} (int_0^1 P(Bin(K-1,u)=r) P(Bin(K-1,u)=s) du)^2, closed form.
+  static void BinomialConstants(const OT::UnsignedInteger K, double &a, double &S);
+  // Corrected information of a signed sum of blocks: mean of the pointwise
+  // log-ratio on the evaluation half minus mu_n + z_{1-alpha} sigma_tot.
+  // blocks: (variables, sign), the first block being the largest one.
+  double computeAnalyticCorrectedInformation(
+    const std::vector< std::pair< OT::Indices, int > > &blocks);
 
   double compute2PtInformation(const OT::UnsignedInteger X,
                                const OT::UnsignedInteger Y,
@@ -80,7 +105,10 @@ private:
   );
 
   mutable gum::HashTable< std::string, double > HCache_;
+  mutable gum::HashTable< std::string, OT::Point > logPDFCache_;
   OT::Sample data_;
+  OT::Sample fit_;   // first half of data_, Analytic mode
+  OT::Sample eval_;  // second half of data_, Analytic mode
   KModeTypes kmode_{KModeTypes::Naive};
   CModeTypes cmode_{CModeTypes::Bernstein};
   double alpha_ = 0.01;
