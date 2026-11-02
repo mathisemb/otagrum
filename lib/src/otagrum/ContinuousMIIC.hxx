@@ -45,6 +45,9 @@ public:
   void setAlpha(double alpha);
   double getAlpha() const;
 
+  void setOrientationOffset(double offset);
+  double getOrientationOffset() const;
+
 private:
   void initiation();
   void iteration();

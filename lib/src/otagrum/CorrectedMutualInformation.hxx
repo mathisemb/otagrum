@@ -54,6 +54,14 @@ public:
   KModeTypes getKMode();
   CModeTypes getCMode();
 
+  // Orientation. compute3PtCorrectedInformation returns the raw three-point
+  // information plus this offset, and MIIC declares a v-structure when the
+  // result is negative. By default the offset follows the mode: alpha in
+  // Naive (the historical CMIIC, which almost never orients), 0 otherwise.
+  // Setting it explicitly decouples the orientation from the two-point test.
+  void setOrientationOffset(const double offset);
+  double getOrientationOffset() const;
+
 private:
   void clearHCache() const;
 
@@ -112,6 +120,8 @@ private:
   KModeTypes kmode_{KModeTypes::Naive};
   CModeTypes cmode_{CModeTypes::Bernstein};
   double alpha_ = 0.01;
+  bool hasOrientationOffset_ = false;
+  double orientationOffset_ = 0.;
 };
 
 }

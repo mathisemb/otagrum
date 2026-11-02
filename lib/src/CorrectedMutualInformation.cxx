@@ -57,6 +57,21 @@ double CorrectedMutualInformation::getAlpha() const
   return alpha_;
 }
 
+void CorrectedMutualInformation::setOrientationOffset(const double offset)
+{
+  hasOrientationOffset_ = true;
+  orientationOffset_ = offset;
+}
+
+double CorrectedMutualInformation::getOrientationOffset() const
+{
+  if (hasOrientationOffset_)
+  {
+    return orientationOffset_;
+  }
+  return (kmode_ == KModeTypes::Naive) ? alpha_ : 0.;
+}
+
 OT::UnsignedInteger CorrectedMutualInformation::getSize() const
 {
   return data_.getSize();
@@ -402,18 +417,8 @@ double CorrectedMutualInformation::compute3PtPenalty(
   //const OT::Indices &U
 )
 {
-  if (kmode_ == KModeTypes::NoCorr)
-  {
-    return 0.;
-  }
-  else if (kmode_ == KModeTypes::Naive)
-  {
-    return -alpha_;
-  }
-  else
-  {
-    return 0.;
-  }
+  // The corrected information is I - penalty = I + offset.
+  return -getOrientationOffset();
 }
 
 double CorrectedMutualInformation::compute3PtCorrectedInformation(const OT::UnsignedInteger X,

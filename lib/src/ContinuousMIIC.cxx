@@ -106,6 +106,16 @@ void ContinuousMIIC::setAlpha(double alpha)
   info_.setAlpha(alpha);
 }
 
+void ContinuousMIIC::setOrientationOffset(double offset)
+{
+  info_.setOrientationOffset(offset);
+}
+
+double ContinuousMIIC::getOrientationOffset() const
+{
+  return info_.getOrientationOffset();
+}
+
 double ContinuousMIIC::getAlpha() const
 {
   return info_.getAlpha();
