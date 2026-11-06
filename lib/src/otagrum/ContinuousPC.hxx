@@ -31,6 +31,7 @@
 #include <openturns/Sample.hxx>
 
 #include "otagrum/ContinuousTTest.hxx"
+#include "otagrum/CorrectedMutualInformation.hxx"
 #include "otagrum/NamedDAG.hxx"
 #include "otagrum/NamedJunctionTree.hxx"
 
@@ -55,6 +56,17 @@ public:
 
   void setVerbosity(bool verbose);
   bool getVerbosity() const;
+
+  // Independence test, the only thing that changes between the two.
+  // Hellinger       : the test of ContinuousTTest (Bouezmarni, Rombouts and
+  //                   Taamouti), two-sided. The default.
+  // KullbackLeibler : the test of CorrectedMutualInformation in Analytic mode,
+  //                   conditional information with sample split and threshold
+  //                   mu_n + z_{1-alpha} sigma_tot, one-sided.
+  // Both use the alpha of the constructor as level.
+  enum class TestTypes {Hellinger, KullbackLeibler};
+  void setTestType(TestTypes test);
+  TestTypes getTestType() const;
 
   double getPValue(gum::NodeId x, gum::NodeId y) const;
   double getTTest(gum::NodeId x, gum::NodeId y) const;
@@ -97,9 +109,18 @@ private:
   gum::EdgeProperty<double> ttests_;
   std::vector<gum::Edge> removed_;
 
+  // The test chosen by testType_, same signature as ContinuousTTest::isIndep,
+  // (statistic, p-value, independent).
+  std::tuple<double, double, bool> isIndep(gum::NodeId y, gum::NodeId z,
+                                           const OT::Indices &X) const;
+
   OT::UnsignedInteger maxCondSet_;
   bool verbose_;
   ContinuousTTest tester_;
+  TestTypes testType_;
+  // Kullback-Leibler test, Analytic mode. mutable because of its caches,
+  // like the cache of ContinuousTTest.
+  mutable CorrectedMutualInformation klTester_;
 
   bool skel_done_, pdag_done_, dag_done_, jt_done_;
 

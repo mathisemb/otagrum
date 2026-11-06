@@ -29,6 +29,8 @@
 #include <agrum/base/graphs/mixedGraph.h>
 #include <agrum/base/graphs/algorithms/MeekRules.h>
 
+#include <openturns/Exception.hxx>
+
 #include "otagrum/ContinuousPC.hxx"
 #include "otagrum/Utils.hxx"
 
@@ -101,10 +103,11 @@ ContinuousPC::ContinuousPC(const OT::Sample &data,
                            const OT::UnsignedInteger maxConditioningSetSize,
                            const double alpha)
   : OT::Object(), maxCondSet_(maxConditioningSetSize), verbose_(false),
-    tester_(data), skel_done_(false), pdag_done_(false), dag_done_(false),
-    jt_done_(false)
+    tester_(data), testType_(TestTypes::Hellinger), klTester_(data),
+    skel_done_(false), pdag_done_(false), dag_done_(false), jt_done_(false)
 {
   tester_.setAlpha(alpha);
+  klTester_.setAlpha(alpha);
   removed_.reserve(data.getDimension() * data.getDimension() /
                    3); // a rough estimation ...
 }
@@ -140,7 +143,7 @@ ContinuousPC::getSeparator(const gum::UndiGraph & /*g*/, gum::NodeId y,
   IndicesCombinationIterator separator(neighbours, n);
   for (separator.setFirst(); !separator.isLast(); separator.next())
   {
-    std::tie(t, p, ok) = tester_.isIndep(y, z, separator.current());
+    std::tie(t, p, ok) = isIndep(y, z, separator.current());
     if (!ok)
     {
       TRACE(TRACE_EDGE((y), (z))
@@ -233,6 +236,7 @@ gum::UndiGraph ContinuousPC::inferSkeleton()
 {
   gum::UndiGraph g;
   tester_.clearCache();
+  klTester_.clearCaches();
   sepset_.clear();
   pvalues_.clear();
   removed_.clear();
@@ -769,6 +773,29 @@ bool ContinuousPC::getVerbosity() const
 {
   return verbose_;
 };
+
+void ContinuousPC::setTestType(TestTypes test)
+{
+  testType_ = test;
+}
+
+ContinuousPC::TestTypes ContinuousPC::getTestType() const
+{
+  return testType_;
+}
+
+std::tuple<double, double, bool> ContinuousPC::isIndep(gum::NodeId y, gum::NodeId z,
+    const OT::Indices &X) const
+{
+  switch (testType_)
+  {
+    case TestTypes::Hellinger:
+      return tester_.isIndep(y, z, X);
+    case TestTypes::KullbackLeibler:
+      return klTester_.isIndep(y, z, X);
+  }
+  throw OT::InvalidArgumentException(HERE) << "Unknown test type.";
+}
 
 const std::vector<gum::Edge> &ContinuousPC::getRemoved() const
 {

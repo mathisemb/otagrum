@@ -3,6 +3,7 @@
 
 #include <agrum/base/core/hashTable.h>
 
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -38,6 +39,20 @@ public:
                                         const OT::UnsignedInteger Y,
                                         const OT::UnsignedInteger Z,
                                         const OT::Indices &U = OT::Indices());
+
+  // Standardised statistic of the analytic test, (I_hat - mu_n) / sigma_tot,
+  // for X independent of Y given U, on the split sample whatever the mode.
+  // Under H_0 it is asymptotically standard normal, independence is rejected
+  // when it exceeds z_{1-alpha}. Used by ContinuousPC for its Kullback-Leibler test.
+  double computeAnalyticTestStatistic(const OT::UnsignedInteger X,
+                                      const OT::UnsignedInteger Y,
+                                      const OT::Indices &U = OT::Indices());
+  // The analytic test as PC expects it, same signature as ContinuousTTest::isIndep:
+  // (statistic, p-value, independent), with p = 1 - Phi(statistic), one-sided,
+  // and independence accepted when p >= alpha.
+  std::tuple<double, double, bool> isIndep(const OT::UnsignedInteger X,
+                                           const OT::UnsignedInteger Y,
+                                           const OT::Indices &U = OT::Indices());
 
   // NoCorr   : no penalty, the raw plug-in information is used.
   // Naive    : constant penalty alpha, the historical CMIIC behaviour.
@@ -82,9 +97,15 @@ private:
   // a = K sum_r (int_0^1 P(Bin(K-1,u)=r)^2 du) and
   // S = sum_{r,s} (int_0^1 P(Bin(K-1,u)=r) P(Bin(K-1,u)=s) du)^2, closed form.
   static void BinomialConstants(const OT::UnsignedInteger K, double &a, double &S);
-  // Corrected information of a signed sum of blocks: mean of the pointwise
-  // log-ratio on the evaluation half minus mu_n + z_{1-alpha} sigma_tot.
+  // The three terms of the analytic test for a signed sum of blocks:
+  // I_hat, the mean of the pointwise log-ratio on the evaluation half,
+  // mu_n, the centring, and sigma_tot = sqrt(sigma_n^2 + s^2 / n_eval).
   // blocks: (variables, sign), the first block being the largest one.
+  void computeAnalyticTerms(
+    const std::vector< std::pair< OT::Indices, int > > &blocks,
+    double &iHat, double &mu, double &sigmaTot);
+  // Corrected information of a signed sum of blocks,
+  // I_hat - (mu_n + z_{1-alpha} sigma_tot).
   double computeAnalyticCorrectedInformation(
     const std::vector< std::pair< OT::Indices, int > > &blocks);
 

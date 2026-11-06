@@ -174,8 +174,9 @@ void CorrectedMutualInformation::BinomialConstants(const OT::UnsignedInteger K,
   a *= static_cast<double>(K);
 }
 
-double CorrectedMutualInformation::computeAnalyticCorrectedInformation(
-  const std::vector< std::pair< OT::Indices, int > > &blocks)
+void CorrectedMutualInformation::computeAnalyticTerms(
+  const std::vector< std::pair< OT::Indices, int > > &blocks,
+  double &iHat, double &mu, double &sigmaTot)
 {
   const OT::UnsignedInteger nFit = fit_.getSize();
   const OT::UnsignedInteger nEval = eval_.getSize();
@@ -206,7 +207,7 @@ double CorrectedMutualInformation::computeAnalyticCorrectedInformation(
   // Scale sigma_n: the largest block alone, (K^{2D} S^D - 1) / (2 n_fit^2).
   double a = 0.0, S = 0.0;
   BinomialConstants(K, a, S);
-  double mu = 0.0;
+  mu = 0.0;
   for (const auto &block : blocks)
   {
     const OT::UnsignedInteger d = block.first.getSize();
@@ -218,10 +219,36 @@ double CorrectedMutualInformation::computeAnalyticCorrectedInformation(
   const double dK = static_cast<double>(K);
   const double sigma2 = (std::pow(dK, 2.0 * dD) * std::pow(S, dD) - 1.0)
                         / (2.0 * static_cast<double>(nFit) * static_cast<double>(nFit));
-  const double sigmaTot = std::sqrt(sigma2 + s2 / static_cast<double>(nEval));
-  const double z = OT::DistFunc::qNormal(1.0 - alpha_);
+  sigmaTot = std::sqrt(sigma2 + s2 / static_cast<double>(nEval));
+  iHat = mean;
+}
 
-  return mean - (mu + z * sigmaTot);
+double CorrectedMutualInformation::computeAnalyticCorrectedInformation(
+  const std::vector< std::pair< OT::Indices, int > > &blocks)
+{
+  double iHat = 0.0, mu = 0.0, sigmaTot = 0.0;
+  computeAnalyticTerms(blocks, iHat, mu, sigmaTot);
+  const double z = OT::DistFunc::qNormal(1.0 - alpha_);
+  return iHat - (mu + z * sigmaTot);
+}
+
+double CorrectedMutualInformation::computeAnalyticTestStatistic(const OT::UnsignedInteger X,
+    const OT::UnsignedInteger Y,
+    const OT::Indices &U)
+{
+  double iHat = 0.0, mu = 0.0, sigmaTot = 0.0;
+  // log-ratio = log c_XYU + log c_U - log c_XU - log c_YU, as in compute2PtCorrectedInformation
+  computeAnalyticTerms({{U + X + Y, +1}, {U, +1}, {U + X, -1}, {U + Y, -1}}, iHat, mu, sigmaTot);
+  return (iHat - mu) / sigmaTot;
+}
+
+std::tuple<double, double, bool> CorrectedMutualInformation::isIndep(const OT::UnsignedInteger X,
+    const OT::UnsignedInteger Y,
+    const OT::Indices &U)
+{
+  const double t = computeAnalyticTestStatistic(X, Y, U);
+  const double p = OT::DistFunc::pNormal(-t);  // 1 - Phi(t), one-sided
+  return std::make_tuple(t, p, p >= alpha_);
 }
 
 // Compute the (copula) entropy on variables
